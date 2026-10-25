@@ -1,0 +1,1199 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat Viewer</title>
+  <style>
+    :root {
+      --bg: #efeae2;
+      --pattern: rgba(0, 0, 0, .045);
+      --panel: #f0f2f5;
+      --panel-border: #e3e6e8;
+      --header: #008069;
+      --header-text: #ffffff;
+      --header-sub: rgba(255, 255, 255, .82);
+      --in: #ffffff;
+      --out: #d9fdd3;
+      --text: #111b21;
+      --muted: #667781;
+      --meta-out: #667781;
+      --sys: #ffeecd;
+      --sys-text: #54656f;
+      --date: #ffffff;
+      --date-text: #54656f;
+      --tick: #53bdeb;
+      --link: #027eb5;
+      --code-bg: rgba(0, 0, 0, .06);
+      --hit: #ffd54a;
+      --hit-cur: #f59e0b;
+      --mark: #ffe58a;
+      --accent: #00a884;
+      --card: #ffffff;
+      --input-bg: #ffffff;
+      --shadow: 0 1px .5px rgba(11, 20, 26, .13);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b141a;
+        --pattern: rgba(255, 255, 255, .03);
+        --panel: #202c33;
+        --panel-border: #2a3942;
+        --header: #202c33;
+        --header-text: #e9edef;
+        --header-sub: #8696a0;
+        --in: #202c33;
+        --out: #005c4b;
+        --text: #e9edef;
+        --muted: #8696a0;
+        --meta-out: rgba(233, 237, 239, .62);
+        --sys: #182229;
+        --sys-text: #ffd279;
+        --date: #182229;
+        --date-text: #8696a0;
+        --link: #53bdeb;
+        --code-bg: rgba(255, 255, 255, .08);
+        --hit: #b8860b;
+        --hit-cur: #f59e0b;
+        --mark: #8a6d00;
+        --card: #111b21;
+        --input-bg: #2a3942;
+        --shadow: 0 1px .5px rgba(0, 0, 0, .3);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #0b141a;
+      --pattern: rgba(255, 255, 255, .03);
+      --panel: #202c33;
+      --panel-border: #2a3942;
+      --header: #202c33;
+      --header-text: #e9edef;
+      --header-sub: #8696a0;
+      --in: #202c33;
+      --out: #005c4b;
+      --text: #e9edef;
+      --muted: #8696a0;
+      --meta-out: rgba(233, 237, 239, .62);
+      --sys: #182229;
+      --sys-text: #ffd279;
+      --date: #182229;
+      --date-text: #8696a0;
+      --link: #53bdeb;
+      --code-bg: rgba(255, 255, 255, .08);
+      --hit: #b8860b;
+      --hit-cur: #f59e0b;
+      --mark: #8a6d00;
+      --card: #111b21;
+      --input-bg: #2a3942;
+      --shadow: 0 1px .5px rgba(0, 0, 0, .3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 14.2px/1.4 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    /* Doodle-like wallpaper made of soft dots */
+    .wallpaper {
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(var(--pattern) 1.5px, transparent 1.6px),
+        radial-gradient(var(--pattern) 1px, transparent 1.1px);
+      background-size: 28px 28px, 18px 18px;
+      background-position: 0 0, 9px 13px;
+    }
+
+    /* ---------- Upload screen ---------- */
+    #landing {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      overflow: auto;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card);
+      border-radius: 16px;
+      box-shadow: 0 6px 30px rgba(0, 0, 0, .12);
+      padding: 32px 28px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+      color: #fff;
+    }
+
+    .card h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .card p.lead {
+      margin: 0 0 22px;
+      color: var(--muted);
+    }
+
+    #drop {
+      border: 2px dashed var(--panel-border);
+      border-radius: 12px;
+      padding: 28px 16px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    #drop:hover,
+    #drop.over,
+    body.dragging #drop {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+
+    #drop strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    #drop span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      border-radius: 999px;
+      padding: 9px 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--accent);
+    }
+
+    .row-btns {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    #error {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fde8e8;
+      color: #9b1c1c;
+      font-size: 13px;
+    }
+
+    details.howto {
+      margin-top: 20px;
+      text-align: left;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    details.howto summary {
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    details.howto ol {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+
+    .privacy {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ---------- Chat screen ---------- */
+    #app {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    header {
+      background: var(--header);
+      color: var(--header-text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      min-height: 60px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, .12);
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-weight: 600;
+      color: #fff;
+      flex-shrink: 0;
+      font-size: 15px;
+    }
+
+    .who-box {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #title {
+      font-weight: 600;
+      font-size: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #subtitle {
+      font-size: 12.5px;
+      color: var(--header-sub);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #searchbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      flex-shrink: 0;
+    }
+
+    #searchbar input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      background: var(--input-bg);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+
+    #searchbar .icon-btn {
+      color: var(--muted);
+      width: 34px;
+      height: 34px;
+    }
+
+    #searchbar .icon-btn:hover {
+      background: var(--code-bg);
+    }
+
+    #hitCount {
+      font-size: 12.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      min-width: 64px;
+      text-align: right;
+    }
+
+    #chatWrap {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    #chat {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      padding: 12px 6% 20px;
+    }
+
+    @media (max-width: 700px) {
+      #chat {
+        padding: 10px 16px 20px;
+      }
+    }
+
+    .day {
+      position: sticky;
+      top: 6px;
+      z-index: 2;
+      text-align: center;
+      margin: 12px 0 8px;
+      pointer-events: none;
+    }
+
+    .day span {
+      display: inline-block;
+      background: var(--date);
+      color: var(--date-text);
+      font-size: 12.5px;
+      padding: 5px 12px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .row {
+      display: flex;
+      margin-top: 2px;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 40px;
+    }
+
+    .row.tail {
+      margin-top: 10px;
+    }
+
+    .row.out {
+      justify-content: flex-end;
+    }
+
+    .row.sys {
+      justify-content: center;
+      margin: 10px 0;
+    }
+
+    .row.sys span {
+      background: var(--sys);
+      color: var(--sys-text);
+      font-size: 12.5px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      max-width: 85%;
+      text-align: center;
+      box-shadow: var(--shadow);
+      white-space: pre-wrap;
+    }
+
+    .bubble {
+      position: relative;
+      max-width: min(75%, 640px);
+      padding: 6px 8px 8px 9px;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      background: var(--in);
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 700px) {
+      .bubble {
+        max-width: 86%;
+      }
+    }
+
+    .out .bubble {
+      background: var(--out);
+    }
+
+    .tail.in .bubble {
+      border-top-left-radius: 0;
+    }
+
+    .tail.out .bubble {
+      border-top-right-radius: 0;
+    }
+
+    .tail .bubble::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 13px;
+    }
+
+    .tail.in .bubble::before {
+      left: -8px;
+      background: var(--in);
+      clip-path: polygon(0 0, 100% 0, 100% 100%);
+    }
+
+    .tail.out .bubble::before {
+      right: -8px;
+      background: var(--out);
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+
+    .sender {
+      font-size: 12.8px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .text {
+      white-space: pre-wrap;
+    }
+
+    .text a {
+      color: var(--link);
+    }
+
+    .text code {
+      font-family: Consolas, "SF Mono", Menlo, monospace;
+      font-size: 13px;
+      background: var(--code-bg);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .text mark {
+      background: var(--mark);
+      color: inherit;
+      border-radius: 2px;
+    }
+
+    .bubble.big .text {
+      font-size: 40px;
+      line-height: 1.15;
+    }
+
+    .deleted {
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .media {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--code-bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 2px 0 4px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .media b {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .spacer {
+      display: inline-block;
+      height: 1px;
+      vertical-align: bottom;
+    }
+
+    .meta {
+      position: absolute;
+      right: 8px;
+      bottom: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .out .meta {
+      color: var(--meta-out);
+    }
+
+    .meta svg {
+      color: var(--tick);
+    }
+
+    .row.hit .bubble {
+      box-shadow: 0 0 0 2px var(--hit);
+    }
+
+    .row.cur .bubble {
+      box-shadow: 0 0 0 3px var(--hit-cur);
+    }
+
+    #toBottom {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--panel);
+      color: var(--muted);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+      display: grid;
+      place-items: center;
+      z-index: 3;
+    }
+
+    footer {
+      background: var(--panel);
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    footer label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    footer select {
+      font: inherit;
+      color: var(--text);
+      background: var(--input-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 5px 8px;
+      max-width: 200px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Upload screen -->
+  <main id="landing" class="wallpaper">
+    <div class="card">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 20.5l1.8-5.2A8.4 8.4 0 1 1 21 11.5z" />
+        </svg>
+      </div>
+      <h1>WhatsApp chat viewer</h1>
+      <p class="lead">Turn an exported chat <b>.txt</b> file into chat bubbles.</p>
+
+      <div id="drop" tabindex="0" role="button" aria-label="Choose a chat file">
+        <strong>Drop your .txt file here</strong>
+        <span>or click to choose a file</span>
+      </div>
+      <input id="file" type="file" accept=".txt,text/plain" hidden>
+
+      <div class="row-btns">
+        <button class="btn ghost" id="sampleBtn" type="button">Try a sample chat</button>
+      </div>
+
+      <div id="error" hidden></div>
+
+      <details class="howto">
+        <summary>How do I export a chat from WhatsApp?</summary>
+        <ol>
+          <li>Open the chat in WhatsApp on your phone.</li>
+          <li><b>Android:</b> tap ⋮ → More → Export chat.<br><b>iPhone:</b> tap the contact/group name → Export Chat.
+          </li>
+          <li>Choose <b>Without media</b>.</li>
+          <li>Send the file to your computer. If you get a .zip file, unzip it and pick the .txt inside.</li>
+        </ol>
+      </details>
+      <p class="privacy">🔒 Your chat is read in your browser and never uploaded anywhere.</p>
+    </div>
+  </main>
+
+  <!-- Chat screen -->
+  <div id="app" hidden>
+    <header>
+      <button class="icon-btn" id="backBtn" title="Open another chat" aria-label="Open another chat">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <div class="avatar" id="avatar"></div>
+      <div class="who-box">
+        <div id="title"></div>
+        <div id="subtitle"></div>
+      </div>
+      <button class="icon-btn" id="searchBtn" title="Search messages" aria-label="Search messages">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Light / dark mode" aria-label="Toggle light or dark mode">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
+        </svg>
+      </button>
+    </header>
+
+    <div id="searchbar" hidden>
+      <input id="searchInput" type="search" placeholder="Search messages…" autocomplete="off">
+      <span id="hitCount"></span>
+      <button class="icon-btn" id="prevHit" title="Previous (Shift+Enter)" aria-label="Previous match">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 15-6-6-6 6" />
+        </svg>
+      </button>
+      <button class="icon-btn" id="nextHit" title="Next (Enter)" aria-label="Next match">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      <button class="icon-btn" id="closeSearch" title="Close search" aria-label="Close search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+          stroke-linecap="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="chatWrap">
+      <div id="chat" class="wallpaper"></div>
+      <button id="toBottom" hidden title="Jump to latest message" aria-label="Jump to latest message">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+    </div>
+
+    <footer>
+      <label>Viewing as <select id="meSelect"></select></label>
+      <span id="stats"></span>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      // ---------- Helpers ----------
+      const $ = (s) => document.querySelector(s);
+      const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      const BIDI = /[\u200E\u200F\u202A-\u202E\u2066-\u2069﻿]/g;
+      const stripBidi = (s) => s.replace(BIDI, "");
+      const store = {
+        get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
+      };
+
+      const NAME_COLORS = ["#e542a3", "#1f7aec", "#029d00", "#fc7e00", "#a62c71", "#00a5b5", "#c4532d", "#7f66ff", "#d63b3b", "#35b2a0", "#b4876e", "#5e8c3a"];
+      function colorFor(name) {
+        let h = 0;
+        for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+        return NAME_COLORS[h % NAME_COLORS.length];
+      }
+
+      const TICKS = '<svg width="16" height="11" viewBox="0 0 16 11" aria-hidden="true"><path fill="currentColor" d="M11.07.65 4.67 8.55 2.17 6.19l-.94.99 3.53 3.33L12.12 1.5zM15.07.65l-6.4 7.9-.9-.85-.94.99 1.93 1.82L16.12 1.5z"/></svg>';
+
+      // ---------- Parsing ----------
+      // Matches the start of a message line in Android and iPhone exports, e.g.
+      //   12/31/20, 10:15 PM - Name: Hello
+      //   31/12/2020, 22:15 - Name: Hello
+      //   [31/12/20, 10:15:30 PM] Name: Hello
+      //   2020-12-31, 22:15 - Name: Hello
+      const LINE_RE = /^\[?(\d{1,4})[\/.\-](\d{1,2})[\/.\-](\d{1,4}),?\s+(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*([ap]\.?\s?m\.?)?\]?\s*[-–~]?\s*([\s\S]*)$/i;
+
+      const MEDIA_RE = /^(<media omitted>|(image|video|audio|sticker|gif|document|contact card|video note) omitted|<attached:\s*[^>]+>|.+\.\w{2,5} \(file attached\)|null)$/i;
+      const DELETED_RE = /^(this message was deleted|you deleted this message)\.?$/i;
+      const EDITED_RE = /\s*<this message was edited>\s*$/i;
+      const SYSTEM_HINT = /(end-to-end encrypted|created group|changed the subject|changed this group|changed the group|added|removed|left$|joined using|security code|changed their phone number|is a contact|disappearing messages|pinned a message|changed the group description)/i;
+
+      function parseChat(text) {
+        const lines = text.replace(/\r\n?/g, "\n").split("\n");
+        const raw = [];
+        let cur = null;
+
+        for (const line of lines) {
+          const norm = line.replace(/[    ]/g, " ");
+          const probe = norm.replace(/^[\u200E\u200F﻿\s]+/, "");
+          const m = LINE_RE.exec(probe);
+          if (m) {
+            cur = { a: m[1], b: m[2], c: m[3], h: +m[4], mi: +m[5], ap: m[7] || "", rest: m[8] };
+            raw.push(cur);
+          } else if (cur) {
+            cur.rest += "\n" + norm; // continuation of a multi-line message
+          }
+        }
+        if (!raw.length) return null;
+
+        // Work out whether dates are day/month or month/day.
+        let order = "DMY";
+        if (raw.some((r) => r.a.length === 4)) order = "YMD";
+        else if (raw.some((r) => +r.a > 12)) order = "DMY";
+        else if (raw.some((r) => +r.b > 12)) order = "MDY";
+        const use12h = raw.some((r) => r.ap);
+
+        const msgs = [];
+        for (const r of raw) {
+          let y, mo, d;
+          if (order === "YMD") [y, mo, d] = [+r.a, +r.b, +r.c];
+          else if (order === "MDY") [mo, d, y] = [+r.a, +r.b, +r.c];
+          else[d, mo, y] = [+r.a, +r.b, +r.c];
+          if (y < 100) y += 2000;
+          let h = r.h;
+          if (r.ap) {
+            const pm = /^p/i.test(r.ap);
+            h = (h % 12) + (pm ? 12 : 0);
+          }
+          const date = new Date(y, mo - 1, d, h, r.mi);
+
+          const rest = r.rest.replace(/^[\u200E\u200F]+/, "");
+          const idx = rest.indexOf(": ");
+          let sender = null, body = rest, system = false;
+          const head = idx > 0 ? rest.slice(0, idx) : "";
+          if (idx > 0 && idx < 80 && !head.includes("\n") && !/["“”]/.test(head)) {
+            sender = stripBidi(head).trim();
+            body = rest.slice(idx + 2);
+            // iPhone exports mark system notices with an invisible character after the colon.
+            const firstLine = stripBidi(body.split("\n")[0]).trim();
+            if (/^[\u200E\u200F]/.test(body) && !MEDIA_RE.test(firstLine) && !DELETED_RE.test(firstLine) && SYSTEM_HINT.test(firstLine)) {
+              system = true;
+            }
+          } else {
+            system = true;
+          }
+
+          body = stripBidi(body);
+          let edited = false;
+          if (EDITED_RE.test(body)) { edited = true; body = body.replace(EDITED_RE, ""); }
+
+          const msg = { date, sender, system, edited, text: body.trim(), media: null, deleted: false };
+          if (!system) {
+            const [first, ...more] = msg.text.split("\n");
+            if (MEDIA_RE.test(first.trim())) {
+              msg.media = describeMedia(first.trim());
+              msg.text = more.join("\n").trim();
+            } else if (DELETED_RE.test(msg.text)) {
+              msg.deleted = true;
+            }
+          }
+          msgs.push(msg);
+        }
+
+        const counts = new Map();
+        for (const m of msgs) if (!m.system) counts.set(m.sender, (counts.get(m.sender) || 0) + 1);
+        const participants = [...counts.keys()];
+        return { msgs, participants, counts, use12h };
+      }
+
+      function describeMedia(s) {
+        const t = s.toLowerCase();
+        const has = (...words) => words.some((w) => t.includes(w));
+        if (t === "null") return { icon: "👁️", label: "View once media" };
+        if (has("photo", "image", ".jpg", ".jpeg", ".png", ".heic")) return { icon: "📷", label: "Photo" };
+        if (has("video note")) return { icon: "📹", label: "Video note" };
+        if (has("gif")) return { icon: "🎞️", label: "GIF" };
+        if (has("video", ".mp4", ".mov", ".3gp")) return { icon: "🎥", label: "Video" };
+        if (has("audio", "ptt", ".opus", ".m4a", ".mp3", ".aac")) return { icon: "🎤", label: "Voice message" };
+        if (has("sticker", ".webp")) return { icon: "💟", label: "Sticker" };
+        if (has("contact card", ".vcf")) return { icon: "👤", label: "Contact" };
+        if (has("document", ".pdf", ".doc", ".xls", ".ppt", ".zip", "file attached")) {
+          const name = s.replace(/^<attached:\s*/i, "").replace(/>$/, "").replace(/\s*\(file attached\)$/i, "");
+          return { icon: "📄", label: has("document omitted") ? "Document" : name };
+        }
+        return { icon: "📎", label: "Media" };
+      }
+
+      // ---------- Text formatting ----------
+      const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"]*[^\s<>".,:;'!?)\]]/gi;
+      function style(t) {
+        return t
+          .replace(/```([\s\S]+?)```/g, "<code>$1</code>")
+          .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?![\w*])/g, "$1<b>$2</b>")
+          .replace(/(^|[^\w_])_(?=\S)([^_\n]*?\S)_(?![\w_])/g, "$1<i>$2</i>")
+          .replace(/(^|[^\w~])~(?=\S)([^~\n]*?\S)~(?![\w~])/g, "$1<s>$2</s>");
+      }
+      function formatText(s) {
+        let out = "", last = 0;
+        for (const m of s.matchAll(URL_RE)) {
+          out += style(esc(s.slice(last, m.index)));
+          const u = m[0];
+          const href = /^www\./i.test(u) ? "https://" + u : u;
+          out += `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`;
+          last = m.index + u.length;
+        }
+        return out + style(esc(s.slice(last)));
+      }
+
+      const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|‍|️|⃣|\s)+$/u;
+      function isBigEmoji(t) {
+        if (!t || t.length > 40 || !EMOJI_ONLY.test(t) || !/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(t)) return false;
+        const compact = t.replace(/\s/g, "");
+        const n = window.Intl && Intl.Segmenter ? [...new Intl.Segmenter().segment(compact)].length : compact.length;
+        return n <= 3;
+      }
+
+      // ---------- Dates ----------
+      const pad = (n) => String(n).padStart(2, "0");
+      function fmtTime(d, use12h) {
+        if (!use12h) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const h = d.getHours() % 12 || 12;
+        return `${h}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
+      }
+      const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+      const fmtShort = (d) => d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+      // ---------- State ----------
+      const state = { msgs: [], participants: [], counts: null, use12h: true, me: null, chatName: "", rows: [], hits: [], hitPos: -1 };
+      const chat = $("#chat");
+
+      function chatNameFrom(filename) {
+        const base = filename.replace(/\.txt$/i, "");
+        const m = base.match(/whatsapp chat (?:with|-)\s*(.+)$/i);
+        return (m ? m[1] : base).trim();
+      }
+
+      function openChat(text, filename) {
+        const parsed = parseChat(text);
+        if (!parsed || !parsed.msgs.length) {
+          showError("Couldn't find any messages in this file. Make sure it's a chat exported from WhatsApp (the .txt file).");
+          return;
+        }
+        Object.assign(state, parsed);
+        state.chatName = chatNameFrom(filename);
+
+        // Pick who "you" are: remembered choice, otherwise the person who isn't named in the file name.
+        const saved = store.get("cv-me:" + state.chatName);
+        const ps = state.participants;
+        if (saved && ps.includes(saved)) state.me = saved;
+        else if (ps.length === 2 && ps.includes(state.chatName)) state.me = ps.find((p) => p !== state.chatName);
+        else state.me = ps[ps.length > 1 ? 1 : 0] || null;
+
+        const sel = $("#meSelect");
+        sel.innerHTML = ps.map((p) => `<option>${esc(p)}</option>`).join("");
+        sel.value = state.me;
+
+        $("#landing").hidden = true;
+        $("#app").hidden = false;
+        $("#error").hidden = true;
+        renderHeader();
+        renderChat();
+        chat.scrollTop = 0;
+      }
+
+      function renderHeader() {
+        const ps = state.participants;
+        const isGroup = ps.length > 2;
+        const title = isGroup
+          ? state.chatName || "Group chat"
+          : ps.find((p) => p !== state.me) || state.chatName || "Chat";
+        $("#title").textContent = title;
+        $("#subtitle").textContent = isGroup ? ps.join(", ") : `${state.msgs.length.toLocaleString()} messages`;
+        const av = $("#avatar");
+        av.style.background = colorFor(title);
+        av.textContent = isGroup ? "👥" : title.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0]).join("").toUpperCase();
+        const { msgs } = state;
+        $("#stats").textContent = `${msgs.length.toLocaleString()} messages · ${fmtShort(msgs[0].date)} – ${fmtShort(msgs[msgs.length - 1].date)}`;
+        document.title = title + " · Chat Viewer";
+      }
+
+      function renderChat() {
+        const { msgs, me, use12h } = state;
+        const isGroup = state.participants.length > 2;
+        const out = [];
+        let lastDay = "", lastSender = null;
+
+        msgs.forEach((m, i) => {
+          const day = m.date.toDateString();
+          if (day !== lastDay) {
+            out.push(`<div class="day"><span>${esc(fmtDay(m.date))}</span></div>`);
+            lastDay = day;
+            lastSender = null;
+          }
+          if (m.system) {
+            out.push(`<div class="row sys" data-i="${i}"><span class="text">${esc(m.text)}</span></div>`);
+            lastSender = null;
+            return;
+          }
+          const mine = m.sender === me;
+          const first = m.sender !== lastSender;
+          lastSender = m.sender;
+
+          const time = fmtTime(m.date, use12h);
+          const big = !m.media && !m.deleted && isBigEmoji(m.text);
+          const metaWidth = Math.round(time.length * 6.3 + (mine ? 20 : 0) + (m.edited ? 38 : 0) + 10);
+
+          let inner = "";
+          if (isGroup && !mine && first) inner += `<div class="sender" style="color:${colorFor(m.sender)}">${esc(m.sender)}</div>`;
+          if (m.media) inner += `<div class="media"><span>${m.media.icon}</span><b>${esc(m.media.label)}</b></div>`;
+          if (m.deleted) {
+            inner += `<span class="text deleted">🚫 ${esc(m.text)}</span>`;
+          } else if (m.text) {
+            inner += `<span class="text">${formatText(m.text)}</span>`;
+          }
+          inner += `<span class="spacer" style="width:${metaWidth}px"></span>`;
+          inner += `<span class="meta">${m.edited ? "Edited · " : ""}${time}${mine ? TICKS : ""}</span>`;
+
+          out.push(`<div class="row ${mine ? "out" : "in"}${first ? " tail" : ""}" data-i="${i}"><div class="bubble${big ? " big" : ""}">${inner}</div></div>`);
+        });
+
+        chat.innerHTML = out.join("");
+        state.rows = [];
+        chat.querySelectorAll("[data-i]").forEach((el) => { state.rows[+el.dataset.i] = el; });
+        if (!$("#searchbar").hidden) runSearch();
+        updateToBottom();
+      }
+
+      // ---------- Search ----------
+      let savedHtml = null; // original text of the highlighted message, to restore later
+
+      function clearCurrent() {
+        const prev = state.rows[state.hits[state.hitPos]];
+        if (prev) {
+          prev.classList.remove("cur");
+          const t = prev.querySelector(".text");
+          if (t && savedHtml !== null) t.innerHTML = savedHtml;
+        }
+        savedHtml = null;
+      }
+
+      function runSearch() {
+        clearCurrent();
+        for (const i of state.hits) state.rows[i]?.classList.remove("hit");
+        const q = $("#searchInput").value.trim().toLowerCase();
+        state.hits = [];
+        state.hitPos = -1;
+        if (q) {
+          state.msgs.forEach((m, i) => {
+            const hay = (m.text + " " + (m.media ? m.media.label : "")).toLowerCase();
+            if (hay.includes(q)) state.hits.push(i);
+          });
+          for (const i of state.hits) state.rows[i]?.classList.add("hit");
+        }
+        if (state.hits.length) goToHit(0);
+        else $("#hitCount").textContent = q ? "No results" : "";
+      }
+
+      function goToHit(pos) {
+        if (!state.hits.length) return;
+        clearCurrent();
+        state.hitPos = (pos + state.hits.length) % state.hits.length;
+        const el = state.rows[state.hits[state.hitPos]];
+        el.classList.add("cur");
+        const t = el.querySelector(".text");
+        if (t) {
+          savedHtml = t.innerHTML;
+          highlight(t, $("#searchInput").value.trim());
+        }
+        el.scrollIntoView({ block: "center" });
+        $("#hitCount").textContent = `${state.hitPos + 1} of ${state.hits.length}`;
+      }
+
+      function highlight(root, q) {
+        if (!q) return;
+        const ql = q.toLowerCase();
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        for (const node of nodes) {
+          const s = node.nodeValue, sl = s.toLowerCase();
+          let at = sl.indexOf(ql);
+          if (at < 0) continue;
+          const frag = document.createDocumentFragment();
+          let last = 0;
+          while (at >= 0) {
+            frag.append(s.slice(last, at));
+            const mk = document.createElement("mark");
+            mk.textContent = s.slice(at, at + q.length);
+            frag.append(mk);
+            last = at + q.length;
+            at = sl.indexOf(ql, last);
+          }
+          frag.append(s.slice(last));
+          node.replaceWith(frag);
+        }
+      }
+
+      function openSearch() {
+        $("#searchbar").hidden = false;
+        $("#searchInput").focus();
+        $("#searchInput").select();
+      }
+      function closeSearch() {
+        $("#searchInput").value = "";
+        runSearch();
+        $("#searchbar").hidden = true;
+      }
+
+      // ---------- Misc UI ----------
+      function updateToBottom() {
+        const far = chat.scrollHeight - chat.scrollTop - chat.clientHeight > 400;
+        $("#toBottom").hidden = !far;
+      }
+
+      function showError(msg) {
+        const e = $("#error");
+        e.textContent = msg;
+        e.hidden = false;
+      }
+
+      async function handleFile(file) {
+        if (!file) return;
+        if (/\.zip$/i.test(file.name)) {
+          showError("That's a .zip file. Unzip it first, then choose the .txt file inside.");
+          return;
+        }
+        try {
+          openChat(await file.text(), file.name);
+        } catch (err) {
+          showError("Couldn't read that file: " + err.message);
+        }
+      }
+
+      function goHome() {
+        $("#app").hidden = true;
+        $("#landing").hidden = false;
+        $("#file").value = "";
+        closeSearch();
+        chat.innerHTML = "";
+        document.title = "Chat Viewer";
+      }
+
+      // ---------- Events ----------
+      const drop = $("#drop");
+      drop.addEventListener("click", () => $("#file").click());
+      drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#file").click(); } });
+      $("#file").addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+      let dragDepth = 0;
+      window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+      window.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragging"); } });
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dragDepth = 0;
+        document.body.classList.remove("dragging");
+        handleFile(e.dataTransfer.files[0]);
+      });
+
+      $("#sampleBtn").addEventListener("click", () => openChat(SAMPLE, "WhatsApp Chat with Priya.txt"));
+      $("#backBtn").addEventListener("click", goHome);
+
+      $("#meSelect").addEventListener("change", (e) => {
+        state.me = e.target.value;
+        store.set("cv-me:" + state.chatName, state.me);
+        const top = chat.scrollTop;
+        renderHeader();
+        renderChat();
+        chat.scrollTop = top;
+      });
+
+      $("#searchBtn").addEventListener("click", () => ($("#searchbar").hidden ? openSearch() : closeSearch()));
+      $("#closeSearch").addEventListener("click", closeSearch);
+      let searchTimer;
+      $("#searchInput").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 200); });
+      $("#searchInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); goToHit(state.hitPos + (e.shiftKey ? -1 : 1)); }
+        if (e.key === "Escape") closeSearch();
+      });
+      $("#nextHit").addEventListener("click", () => goToHit(state.hitPos + 1));
+      $("#prevHit").addEventListener("click", () => goToHit(state.hitPos - 1));
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f" && !$("#app").hidden) { e.preventDefault(); openSearch(); }
+      });
+
+      chat.addEventListener("scroll", updateToBottom, { passive: true });
+      $("#toBottom").addEventListener("click", () => { chat.scrollTop = chat.scrollHeight; });
+
+      // Theme: follows the system until toggled, then remembers the choice.
+      const savedTheme = store.get("cv-theme");
+      if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+      $("#themeBtn").addEventListener("click", () => {
+        const current = document.documentElement.dataset.theme
+          || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        const next = current === "dark" ? "light" : "dark";
+        document.documentElement.dataset.theme = next;
+        store.set("cv-theme", next);
+      });
+
+      // ---------- Sample chat ----------
+      const SAMPLE = `12/03/2024, 09:12 - Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Tap to learn more.
+12/03/2024, 09:12 - Priya: Good morning! ☀️
+12/03/2024, 09:13 - Priya: Are we still on for the trip this weekend?
+12/03/2024, 09:20 - Rahul: Morning! Yes, *definitely* 🙌
+12/03/2024, 09:21 - Rahul: I made a list of things to pack:
+- tent
+- sleeping bags
+- snacks (lots of them)
+12/03/2024, 09:22 - Priya: Haha the snacks are the _most important_ part
+12/03/2024, 09:24 - Priya: <Media omitted>
+12/03/2024, 09:24 - Priya: That's the campsite I found
+12/03/2024, 09:30 - Rahul: Looks amazing 😍
+12/03/2024, 09:31 - Rahul: Here's the weather forecast https://www.example.com/weather/campsite
+12/03/2024, 09:33 - Priya: This message was deleted
+12/03/2024, 09:33 - Priya: Oops wrong chat 😅
+13/03/2024, 18:05 - Rahul: Booked it! Check-in is at \`\`\`2:00 PM\`\`\` on Saturday <This message was edited>
+13/03/2024, 18:07 - Priya: 🎉🎉🎉
+13/03/2024, 18:07 - Priya: You're the best
+13/03/2024, 18:10 - Rahul: I know 😎
+13/03/2024, 18:11 - Rahul: <Media omitted>
+13/03/2024, 18:15 - Priya: ~Leaving at 7~ Leaving at 8, let's not be crazy
+13/03/2024, 18:16 - Rahul: Deal 👍`;
+    })();
+  </script>
+</body>
+
+</html>
